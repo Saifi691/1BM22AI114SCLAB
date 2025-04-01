@@ -1,64 +1,3 @@
-#ant colony
-import numpy as np, random
-class AntColony:
-    def __init__(s, d, a, i, α=1, β=2, e=0.5, Q=100):
-        s.d, s.p, s.a, s.i, s.α, s.β, s.e, s.Q, s.n = d, np.ones(d.shape)/len(d), a, i, α, β, e, Q, len(d)
-    def run(s):
-        b, l = None, float('inf')
-        for _ in range(s.i):
-            p, L = s.solve()
-            print("Paths:", p)
-            print("Lengths:", L)
-            s.update(p, L)
-            if min(L) < l: b, l = p[np.argmin(L)], min(L)
-        return b, l
-    def solve(s):
-        P, L = [], []
-        for _ in range(s.a):
-            p = s.path()
-            P.append(p), L.append(s.length(p))
-        return P, L
-    def path(s):
-        p = [random.randint(0, s.n - 1)]
-        while len(p) < s.n: p.append(s.next(p))
-        return p
-    def next(s, p):
-        c = p[-1]
-        probs = []
-        for n in range(s.n):
-            if n not in p:
-                prob = (s.p[c][n] ** s.α) * (1 / s.d[c][n]) ** s.β
-                probs.append((n, prob))
-
-        total = sum(pr for _, pr in probs)
-        r = random.random() * total
-        for n, pr in probs:
-            r -= pr
-            if r <= 0:
-                return n
-    def length(s, p): return sum(s.d[p[i-1]][p[i]] for i in range(1, len(p)))
-
-    def update(s, P, L):
-        s.p *= (1 - s.e)
-        for p, l in zip(P, L):
-            for i in range(len(p) - 1):
-                s.p[p[i]][p[i+1]] += s.Q / l
-                s.p[p[i+1]][p[i]] += s.Q / l
-
-distances = np.array([
-    [0, 10, 15, 20],
-    [10, 0, 35, 25],
-    [15, 35, 0, 30],
-    [20, 25, 30, 0]
-])
-
-aco = AntColony(distances, a=5, i=100)
-best_path, best_length = aco.run()
-print("Best path:", best_path)
-print("Best length:", best_length)
-
-
-
 
 #genetic algorithm
 import random
@@ -105,3 +44,64 @@ def genetic_algorithm():
     print("Best Individual:", best_individual)
 
 genetic_algorithm()
+
+
+
+
+
+#grey wolf
+import numpy as np
+
+def objective_function(x):
+    return sum(100.0 * (x[1:] - x[:-1]**2.0)**2.0 + (1 - x[:-1])**2.0)
+
+class GreyWolfOptimizer:
+    def __init__(self, num_wolves, dimension, bounds, max_iter):
+        self.num_wolves = num_wolves
+        self.dimension = dimension
+        self.bounds = bounds
+        self.max_iter = max_iter
+        self.wolves = np.random.uniform(bounds[:, 0], bounds[:, 1], (num_wolves, dimension))
+        self.scores = np.apply_along_axis(objective_function, 1, self.wolves)
+        self.alpha, self.beta, self.delta = self.get_best_wolves()
+
+    def get_best_wolves(self):
+        sorted_indices = np.argsort(self.scores)
+        return self.wolves[sorted_indices[:3]]
+
+    def optimize(self):
+        for iteration in range(self.max_iter):
+            a = 2 - iteration * (2 / self.max_iter)
+            for i in range(self.num_wolves):
+                A1, A2, A3 = a * (2 * np.random.rand(self.dimension) - 1), a * (2 * np.random.rand(self.dimension) - 1), a * (2 * np.random.rand(self.dimension) - 1)
+                C1, C2, C3 = 2 * np.random.rand(self.dimension), 2 * np.random.rand(self.dimension), 2 * np.random.rand(self.dimension)
+
+                D_alpha = abs(C1 * self.alpha - self.wolves[i])
+                D_beta = abs(C2 * self.beta - self.wolves[i])
+                D_delta = abs(C3 * self.delta - self.wolves[i])
+
+                X1 = self.alpha - A1 * D_alpha
+                X2 = self.beta - A2 * D_beta
+                X3 = self.delta - A3 * D_delta
+
+                self.wolves[i] = (X1 + X2 + X3) / 3
+                self.wolves[i] = np.clip(self.wolves[i], self.bounds[:, 0], self.bounds[:, 1])
+
+            self.scores = np.apply_along_axis(objective_function, 1, self.wolves)
+            self.alpha, self.beta, self.delta = self.get_best_wolves()
+
+            print(f"Iteration {iteration+1}/{self.max_iter}, Best Score: {objective_function(self.alpha)}")
+
+        return self.alpha, objective_function(self.alpha)
+
+if __name__ == "__main__":
+    dimension = 2
+    bounds = np.array([[-2, 2], [-2, 2]])
+    gwo = GreyWolfOptimizer(num_wolves=5, dimension=dimension, bounds=bounds, max_iter=10)
+
+    # Run optimization
+    best_position, best_score = gwo.optimize()
+
+    # Output results
+    print("\nFinal Best Position:", best_position)
+    print("Final Best Score:", best_score)
